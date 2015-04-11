@@ -5,7 +5,10 @@
   	"require": false,
   	"define": false,
     "__dirname": false,
-    "process": false
+    "process": false,
+    "exports": false,
+    "console": false,
+    "module": false
   },
   "globalstrict": true,
   "quotmark": false,

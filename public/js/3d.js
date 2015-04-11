@@ -9,7 +9,7 @@ define([
 
 	var camera, scene, renderer, controls;
 	var mesh_main, mesh_seg1, mesh_seg2, mesh_seg3;
-	var values_main, values_seg1, values_seg2, values_seg3, values_scalar;
+	var values_main, seg1State, seg2State, seg3State;
 	var _stats;
 
 	var SCREEN_WIDTH = window.innerWidth;
@@ -17,86 +17,67 @@ define([
 
 	var MAX_ANGLE = 1 * Math.PI;
 
+	var PalmState = function () {
+		this.xrot = Math.PI;
+		this.yrot = 0.0;
+		this.jointAngle = 0.0;
+		this.x = 400.0;
+		this.y = 0.0;
+		this.z = 0.0;
+	};
+
+	var JointState = function () {
+		this.xrot = 0.0;
+		this.yrot = 0.0;
+		this.jointAngle = 0.0;
+		this.x = 400.0;
+		this.y = 0.0;
+		this.z = 0.0;
+		this.minVal = 0;
+		this.maxVal = 65535;
+	};
+
+
 
 	init();
 	animate();
 
+	function init_state() {
+		values_main = new PalmState();
+		seg1State = new JointState();
+		seg2State = new JointState();
+		seg3State = new JointState();
+	}
 
 	function init_gui() {
 
+		function createJointGUI(segment, number) {
+			var jointGUI = gui.addFolder('Finger Joint ' + number);
+			// jointGUI.add( segment, "xrot", 0.0, MAX_ANGLE, 0.001 );
+			// jointGUI.add( segment, "x", 0.0, 600.0, 0.001 );
+
+			jointGUI.add(segment, "jointAngle", -(Math.PI/4), MAX_ANGLE, 0.001 ).listen();
+			jointGUI.add(segment, "minVal", 0, 65535, 1);
+			jointGUI.add(segment, "maxVal", 0, 65535, 1);
+
+
+			// jointGUI.open();
+		}
+
+		function createPalmGUI() {
+			var palmGui = gui.addFolder('Palm');
+			// palmGui.add( values_main, "xrot", 0.0, MAX_ANGLE, 0.001 );
+			palmGui.add( values_main, "jointAngle", 0.0, MAX_ANGLE, 0.001 );
+			// palmGui.add( values_main, "x", 0.0, 600.0, 0.001 );
+			// palmGui.open();
+		}
+
 		var gui = new dat.GUI();
 
-		var MainEffector = function () {
-			this.xrot = Math.PI;
-			this.yrot = 0.0;
-			this.jointAngle = 0.0;
-			this.x = 400.0;
-			this.y = 0.0;
-			this.z = 0.0;
-		};
-
-		var Seg1Effector = function () {
-			this.xrot = 0.0;
-			this.yrot = 0.0;
-			this.jointAngle = 0.0;
-			this.x = 400.0;
-			this.y = 0.0;
-			this.z = 0.0;
-		};
-
-		var Seg2Effector = function () {
-			this.xrot = 0.0;
-			this.yrot = 0.0;
-			this.jointAngle = 0.0;
-			this.x = 400.0;
-			this.y = 0.0;
-			this.z = 0.0;
-		};
-
-		var Seg3Effector = function () {
-			this.xrot = 0.0;
-			this.yrot = 0.0;
-			this.jointAngle = 0.0;
-			this.x = 400.0;
-			this.y = 0.0;
-			this.z = 0.0;
-		};
-
-		var ScalarEffector = function () {
-			this.xscale = 1.0;
-		};
-
-		values_main = new MainEffector();
-		values_seg1 = new Seg1Effector();
-		values_seg2 = new Seg2Effector();
-		values_seg3 = new Seg3Effector();
-		values_scalar = new ScalarEffector();
-
-
-		var palmGui = gui.addFolder('Palm');
-		// palmGui.add( values_scalar, "xscale", 0.0, 1.0, 0.001);
-		palmGui.add( values_main, "xrot", 0.0, MAX_ANGLE, 0.001 );
-		palmGui.add( values_main, "jointAngle", 0.0, MAX_ANGLE, 0.001 );
-		// palmGui.add( values_main, "x", 0.0, 600.0, 0.001 );
-		palmGui.open();
-
-		var jointOneGui = gui.addFolder('Finger Joint 1');
-		// jointOneGui.add( values_seg1, "xrot", 0.0, MAX_ANGLE, 0.001 );
-		jointOneGui.add( values_seg1, "jointAngle", -(Math.PI/4), MAX_ANGLE, 0.001 ).listen();
-		// jointOneGui.add( values_seg1, "x", 0.0, 600.0, 0.001 );
-		jointOneGui.open();
-
-		var jointTwoGui = gui.addFolder('Finger Joint 2');
-		// jointTwoGui.add( values_seg2, "xrot", 0.0, MAX_ANGLE, 0.001 );
-		jointTwoGui.add( values_seg2, "jointAngle", 0.0, MAX_ANGLE, 0.001 );
-		// jointTwoGui.add( values_seg2, "x", 0.0, 600.0, 0.001 );
-		jointTwoGui.open();
-
-		var jointThreeGui = gui.addFolder('Finger Joint 3');
-		// jointThreeGui.add( values_seg3, "xrot", 0.0, MAX_ANGLE, 0.001 );
-		jointThreeGui.add( values_seg3, "jointAngle", 0.0, MAX_ANGLE, 0.001 );
-		// jointThreeGui.add( values_seg3, "x", 0.0, 600.0, 0.001 );
-		jointThreeGui.open();
+		createPalmGUI();
+		createJointGUI(seg1State, 1);
+		createJointGUI(seg2State, 2);
+		createJointGUI(seg3State, 3);
 	}
 
 	function init_stats() {
@@ -155,6 +136,7 @@ define([
 	}
 
 	function init() {
+		init_state();
 		init_gui();
 		init_stats();
 		init_renderer();
@@ -182,15 +164,18 @@ define([
 		// _stats.update();
 	}
 
-	function animate() {
+	function updatePoseFromData() {
+		mesh_seg1.rotation.z = scaleAngle(dataprovider.data[7]);
+		seg1State.jointAngle = scaleAngle(dataprovider.data[7]); //updates dat.gui
 
-		requestAnimationFrame( animate );
-		_stats.begin();
-		controls.update();
-		// console.log('Mesh Rotation', mesh.rotation);
-		// console.log('camera.position', camera.position);
-		// mesh.rotation.x += 0.005;
-		// mesh.rotation.y += 0.01;
+		mesh_seg2.rotation.z = scaleAngle(dataprovider.data[11]);
+		seg2State.jointAngle = scaleAngle(dataprovider.data[11]); //updates dat.gui
+
+		mesh_seg3.rotation.z = scaleAngle(dataprovider.data[15]);
+		seg3State.jointAngle = scaleAngle(dataprovider.data[15]); //updates dat.gui
+	}
+
+	function updatePoseFromGUI() {
 
 		mesh_main.rotation.x = values_main.xrot;
 		mesh_main.rotation.y = values_main.yrot;
@@ -199,31 +184,36 @@ define([
 		mesh_main.position.y = values_main.y;
 		mesh_main.position.z = values_main.z;
 
-		mesh_seg1.rotation.x = values_seg1.xrot;
-		mesh_seg1.rotation.y = values_seg1.yrot;
-		mesh_seg1.rotation.z = values_seg1.jointAngle;
-		mesh_seg1.position.x = values_seg1.x;
-		mesh_seg1.position.y = values_seg1.y;
-		mesh_seg1.position.z = values_seg1.z;
+		mesh_seg1.rotation.x = seg1State.xrot;
+		mesh_seg1.rotation.y = seg1State.yrot;
+		// mesh_seg1.rotation.z = seg1State.jointAngle;
+		mesh_seg1.position.x = seg1State.x;
+		mesh_seg1.position.y = seg1State.y;
+		mesh_seg1.position.z = seg1State.z;
 
-		// mesh_seg1.rotation.z = scaleAngle(dataprovider.data[0]);
-		// values_seg1.jointAngle = scaleAngle(dataprovider.data[0]); //updates dat.gui
+		mesh_seg2.rotation.x = seg2State.xrot;
+		mesh_seg2.rotation.y = seg2State.yrot;
+		// mesh_seg2.rotation.z = seg2State.jointAngle;
+		mesh_seg2.position.x = seg2State.x;
+		mesh_seg2.position.y = seg2State.y;
+		mesh_seg2.position.z = seg2State.z;
 
+		mesh_seg3.rotation.x = seg3State.xrot;
+		mesh_seg3.rotation.y = seg3State.yrot;
+		// mesh_seg3.rotation.z = seg3State.jointAngle;
+		mesh_seg3.position.x = seg3State.x;
+		mesh_seg3.position.y = seg3State.y;
+		mesh_seg3.position.z = seg3State.z;
+	}
 
+	function animate() {
 
-		mesh_seg2.rotation.x = values_seg2.xrot;
-		mesh_seg2.rotation.y = values_seg2.yrot;
-		mesh_seg2.rotation.z = values_seg2.jointAngle;
-		mesh_seg2.position.x = values_seg2.x;
-		mesh_seg2.position.y = values_seg2.y;
-		mesh_seg2.position.z = values_seg2.z;
+		requestAnimationFrame( animate );
+		_stats.begin();
+		controls.update();
 
-		mesh_seg3.rotation.x = values_seg3.xrot;
-		mesh_seg3.rotation.y = values_seg3.yrot;
-		mesh_seg3.rotation.z = values_seg3.jointAngle;
-		mesh_seg3.position.x = values_seg3.x;
-		mesh_seg3.position.y = values_seg3.y;
-		mesh_seg3.position.z = values_seg3.z;
+		updatePoseFromGUI();
+		updatePoseFromData();
 
 		renderer.render( scene, camera );
 		_stats.end();

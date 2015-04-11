@@ -2,7 +2,7 @@
 var express = require('express');
 var net = require('net');
 var path = require('path');
-var favicon = require('serve-favicon');
+// var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
@@ -23,61 +23,23 @@ var PORT = 8080;
 
 var io = require('socket.io')(http);
 var TCPClient = new net.Socket();
+var TCP_SOCKET_PAUSED = false;
+
 var lastWebSocket;
 var buffer = "";
-var FAKE = true;
+var FAKE = false;
 var NUMBER_GRASPR_VALUES = 16;
-
-
-// uncomment after placing your favicon in /public
-//app.use(favicon(__dirname + '/public/favicon.ico'));
-app.use(logger('dev'));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.use('/', routes);
-app.use('/users', users);
-
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  var err = new Error('Not Found');
-  err.status = 404;
-  next(err);
-});
-
-// error handlers
-
-// development error handler
-// will print stacktrace
-console.log('hello!', app.get('env'));
-if (app.get('env') === 'development') {
-  app.use(function(err, req, res) {
-    res.status(err.status || 500);
-    res.render('error', {
-      message: err.message,
-      error: err
-    });
-  });
-}
-
-// production error handler
-// no stacktraces leaked to user
-app.use(function(err, req, res, next) {
-  res.status(err.status || 500);
-  res.render('error', {
-    message: err.message,
-    error: {}
-  });
-});
 
 function initTCPSocket() {
     console.log('Initializing TCP Socket..');
     if (FAKE) {
+        var sendData;
         setInterval(function () {
-            TCPClient.emit('data', dataProvider.getRandomData());
-        }, 500);
+            // TCPClient.emit('data', dataProvider.getRandomData());
+            sendData = dataProvider.nextData();
+            // console.log('sendData is', sendData);
+            TCPClient.emit('data', sendData);
+        }, 16);
     }
     TCPClient.connect(PORT, HOST, function() {
         console.log('TCP SOCKET Connected to: ' + HOST + ':' + PORT);
@@ -97,26 +59,65 @@ function initTCPSocket() {
     });
 }
 
+function initWebserver() {
+    // uncomment after placing your favicon in /public
+    //app.use(favicon(__dirname + '/public/favicon.ico'));
+    app.use(logger('dev'));
+    app.use(bodyParser.json());
+    app.use(bodyParser.urlencoded({ extended: false }));
+    app.use(cookieParser());
+    app.use(express.static(path.join(__dirname, 'public')));
 
+    app.use('/', routes);
+    app.use('/users', users);
 
-function initialize() {
+    // catch 404 and forward to error handler
+    app.use(function(req, res, next) {
+      var err = new Error('Not Found');
+      err.status = 404;
+      next(err);
+    });
+
+    // error handlers
+
+    // development error handler
+    // will print stacktrace
+    console.log('hello!', app.get('env'));
+    if (app.get('env') === 'development') {
+      app.use(function(err, req, res) {
+        res.status(err.status || 500);
+        res.render('error', {
+          message: err.message,
+          error: err
+        });
+      });
+    }
+
+    // production error handler
+    // no stacktraces leaked to user
+    app.use(function(err, req, res, next) {
+      res.status(err.status || 500);
+      res.render('error', {
+        message: err.message,
+        error: {}
+      });
+    });
     app.get('/', function(req, res){
         res.sendFile('index.html', { root: __dirname });
     });
 
     app.use('/js', express.static(__dirname + '/js'));
-
-    initTCPSocket();
-
     http.listen(3000, function(){
         console.log('listening on *:3000');
     });
+}
 
+function initWebsocket() {
     io.on('connection', function(websocket){
         console.log('Got a websocket connection! ');
         lastWebSocket = websocket;
 
-        websocket.on('chat message', function(msg){
+        websocket.on('data message', function(msg){
             console.log('message: ' + msg);
         });
 
@@ -132,24 +133,33 @@ function initialize() {
                 if (read.length < NUMBER_GRASPR_VALUES) {
                     //throw it back on the buffer
                     buffer += "\n" + reads[i];
+                    console.log('c');
                     continue;
                 }
-                websocket.emit('chat message', read);  //WHEN YOU SEND JSON YOU GET JSON AT THE BROWSER!!!
+                websocket.emit('data message', read);  //WHEN YOU SEND JSON YOU GET JSON AT THE BROWSER!!!
             }
-            // websocket.emit('chat message', data.toString());
+            // websocket.emit('data message', data.toString());
         });
     });
+}
 
+function initOSSignals() {
     process.on('SIGINT', function() {
         console.log( "\nShutting Down Graspr Node Client Server..." );
         TCPClient.destroy();
         if(lastWebSocket) {
-            lastWebSocket.emit('chat message', '=============== Shutting Down Server! ===============');
+            lastWebSocket.emit('data message', '=============== Shutting Down Server! ===============');
         }
         process.exit( );
     });
 }
 
+function initialize() {
+    initWebserver();
+    initTCPSocket();
+    initWebsocket();
+    initOSSignals();
+}
 
 module.exports = app;
 

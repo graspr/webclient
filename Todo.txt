@@ -1,0 +1,5 @@
+Todo:
+
+in embedded/rpi/rpi/graspr.c  instead of using set_mask, set the pins one by one.  RIght now it doesn't seem like the GPIO pins for the mux are actually toggling.
+
+Ask dave what graspr_worky_no_touchy means.  It has nothing to do with sex.     (actual working version of embedded app).
